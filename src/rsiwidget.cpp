@@ -47,9 +47,9 @@
 #include <math.h>
 #include <KFormat>
 
-RSIObject::RSIObject( QWidget *parent )
-        : QObject( parent ), m_effect( 0 ),
-        m_useImages( false ), m_usePlasma( false ), m_usePlasmaRO( false )
+RSIObject::RSIObject( QWidget *parent ) : QObject( parent )
+        , m_timer(nullptr), m_effect( 0 )
+        , m_useImages( false ), m_usePlasma( false ), m_usePlasmaRO( false )
 {
     // Keep these 2 lines _above_ the messagebox, so the text actually is right.
     m_tray = new RSIDock( this );
@@ -169,33 +169,13 @@ void RSIObject::bigBreakSkipped()
 
 //--------------------------- CONFIG ----------------------------//
 
-void RSIObject::startTimer( bool idle )
+void RSIObject::configureTimer()
 {
-
-    static bool first = true;
-
-    if ( !first ) {
-        qDebug() << "Current Timer: " << m_timer->metaObject()->className()
-        << " wanted: " << ( idle ? "RSITimer" : "RSITimerNoIdle" ) << endl;
-
-        if ( !idle && !strcmp( m_timer->metaObject()->className(), "RSITimerNoIdle" ) )
-            return;
-
-        if ( idle && !strcmp( m_timer->metaObject()->className(), "RSITimer" ) )
-            return;
-
-        qDebug() << "Switching timers";
-
-        m_timer->exit();
-        m_timer->deleteLater();
-//        m_accel->remove("minimize");
+    if (m_timer != nullptr) {
+        m_timer->updateConfig();
+        return;
     }
-
-    if ( idle )
-        m_timer = new RSITimer( this );
-    else
-        m_timer = new RSITimerNoIdle( this );
-
+    m_timer = new RSITimer(this);
     m_timer->start();
 
     connect(m_timer, &RSITimer::breakNow, this, &RSIObject::maximize, Qt::QueuedConnection );
@@ -207,15 +187,13 @@ void RSIObject::startTimer( bool idle )
     connect(m_timer, &RSITimer::tinyBreakSkipped, this, &RSIObject::tinyBreakSkipped, Qt::QueuedConnection );
     connect(m_timer, &RSITimer::bigBreakSkipped, this, &RSIObject::bigBreakSkipped, Qt::QueuedConnection );
 
-    connect(m_tray, &RSIDock::configChanged, m_timer, &RSITimer::slotReadConfig);
+    connect(m_tray, &RSIDock::configChanged, m_timer, &RSITimer::updateConfig);
     connect(m_tray, &RSIDock::dialogEntered, m_timer, &RSITimer::slotStop);
     connect(m_tray, &RSIDock::dialogLeft, m_timer, &RSITimer::slotStart);
     connect(m_tray, &RSIDock::suspend, m_timer, &RSITimer::slotSuspended);
 
     connect(m_relaxpopup, &RSIRelaxPopup::skip, m_timer, &RSITimer::skipBreak);
     connect(m_relaxpopup, &RSIRelaxPopup::postpone, m_timer, &RSITimer::postponeBreak);
-
-    first = false;
 }
 
 void RSIObject::readConfig()
@@ -238,8 +216,7 @@ void RSIObject::readConfig()
     bool showSmallImages = config.readEntry( "ShowSmallImagesCheck", true );
     QString path = config.readEntry( "ImageFolder" );
 
-    bool timertype = config.readEntry( "UseNoIdleTimer", false );
-    startTimer( !timertype );
+    configureTimer();
 
     int effect =  config.readEntry( "Effect", 0 );
 
