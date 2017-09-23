@@ -15,18 +15,11 @@
 */
 
 #include <algorithm>
-#include <QDebug>
 
 #include "rsitimercounter.h"
 
 
 int RSITimerCounter::tick(const int idleTime) {
-    qDebug() << "Tick! For delay " << m_delayTicks
-             << "idleTime: " << idleTime
-             << "m_counter: " << m_counter
-             << "m_breakLength: " << m_breakLength
-             << "m_resetThreshold: " << m_resetThreshold;
-
     m_counter++;
 
     // Not idle for too long, time for a break.
