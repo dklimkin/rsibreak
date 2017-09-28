@@ -13,19 +13,20 @@ setup.cpp
 setupgeneral.cpp
 setuptiming.cpp
 setupnotifications.cpp
-main.cpp
 rsiwidget.cpp
 rsirelaxpopup.cpp
 setupmaximized.cpp
 rsistatwidget.cpp
 rsistats.cpp
 rsitimer.cpp
+rsitimercounter.cpp
 rsiglobals.cpp
 rsistatitem.cpp
 breakbase.cpp
 plasmaeffect.cpp
 breakcontrol.cpp
-rsitimercounter.cpp)
+rsiidletime.cpp
+)
 
 QT5_ADD_DBUS_ADAPTOR( rsibreak_sources
 org.rsibreak.rsiwidget.xml
@@ -33,10 +34,11 @@ rsiwidget.h RSIObject
 )
 
 # compilation
-add_executable(rsibreak ${rsibreak_sources})
+add_library(rsibreak_lib STATIC ${rsibreak_sources})
+add_executable(rsibreak main.cpp)
 
 # linking
-target_link_libraries(rsibreak
+target_link_libraries(rsibreak_lib
     KF5::ConfigCore
     KF5::ConfigWidgets
     KF5::Crash
@@ -50,7 +52,8 @@ target_link_libraries(rsibreak
     KF5::XmlGui
     KF5::WindowSystem
     Qt5::DBus
-    )
+)
+target_link_libraries(rsibreak rsibreak_lib)
 
 # install
 install( TARGETS rsibreak ${INSTALL_TARGETS_DEFAULT_ARGS})

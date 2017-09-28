@@ -35,15 +35,31 @@
 #include "rsistats.h"
 
 RSITimer::RSITimer(QObject *parent) : QThread( parent )
+        , m_idleTimeInstance( new RSIIdleTimeImpl() )
         , m_intervals( RSIGlobals::instance()->intervals() )
-        , m_state (Monitoring)
-        , m_bigBreakCounter(nullptr)
-        , m_tinyBreakCounter(nullptr)
-        , m_pauseCounter(nullptr)
-        , m_popupCounter(nullptr)
+        , m_state ( TimerState::Monitoring )
+        , m_bigBreakCounter( nullptr )
+        , m_tinyBreakCounter( nullptr )
+        , m_pauseCounter( nullptr )
+        , m_popupCounter( nullptr )
 {
     updateConfig(true);
 }
+
+RSITimer::RSITimer( RSIIdleTime* _idleTime, const QVector<int> _intervals, const bool _usePopup, const bool _useIdleTimers ) : QThread( 0 )
+        , m_idleTimeInstance( _idleTime )
+        , m_usePopup( _usePopup )
+        , m_useIdleTimers( _useIdleTimers )
+        , m_intervals( _intervals )
+        , m_state( TimerState::Monitoring )
+        , m_bigBreakCounter( nullptr )
+        , m_tinyBreakCounter( nullptr )
+        , m_pauseCounter(nullptr)
+        , m_popupCounter(nullptr)
+{
+    createTimers();
+}
+
 
 RSITimer::~RSITimer()
 {
@@ -52,14 +68,16 @@ RSITimer::~RSITimer()
             delete counter;
         }
     }
+    delete m_idleTimeInstance;
 }
 
 void RSITimer::run()
 {
     QTimer timer(nullptr);
     connect(&timer, &QTimer::timeout, this, &RSITimer::timeout);
+    timer.setTimerType( Qt::TimerType::CoarseTimer );
     timer.start( 1000 );
-    exec(); //make timers work
+    exec(); // start event loop to make timers work.
 }
 
 void RSITimer::hibernationDetector(const int totalIdle)
@@ -80,8 +98,10 @@ void RSITimer::hibernationDetector(const int totalIdle)
 
 int RSITimer::idleTime()
 {
-    int totalIdle = KIdleTime::instance()->idleTime() / 1000;
+    int totalIdle = m_idleTimeInstance->getIdleTime() / 1000;
     hibernationDetector(totalIdle);
+
+//    qDebug() << "Idle: " << totalIdle;
 
     // TODO Find a modern-desktop way to check if the screensaver is inhibited
     // and disable the timer because we assume you're doing for example a presentation and
@@ -92,7 +112,7 @@ int RSITimer::idleTime()
 
 void RSITimer::doBreakNow(const int breakTime, const bool nextBreakIsBig)
 {
-    m_state = Resting;
+    m_state = TimerState::Resting;
     stopPauseCounters();
     m_pauseCounter = new RSITimerCounter(breakTime, breakTime, INT_MAX);
     RSIGlobals::instance()->NotifyBreak(true, nextBreakIsBig);
@@ -111,7 +131,7 @@ void RSITimer::stopPauseCounters() {
 
 void RSITimer::resetAfterBreak()
 {
-    m_state = Monitoring;
+    m_state = TimerState::Monitoring;
     stopPauseCounters();
     defaultUpdateToolTip();
     emit updateIdleAvg( 0.0 );
@@ -124,12 +144,12 @@ void RSITimer::resetAfterBreak()
 void RSITimer::slotStart()
 {
     emit updateIdleAvg( 0.0 );
-    m_state = Monitoring;
+    m_state = TimerState::Monitoring;
 }
 
 void RSITimer::slotStop()
 {
-    m_state = Suspended;
+    m_state = TimerState::Suspended;
     emit updateIdleAvg( 0.0 );
     emit updateToolTip(0, 0);
 }
@@ -204,7 +224,7 @@ void RSITimer::updateConfig(bool doRestart)
 
 void RSITimer::timeout() {
     // Don't change the tray icon when suspended, or evaluate a possible break.
-    if (m_state == Suspended) {
+    if (m_state == TimerState::Suspended) {
         return;
     }
 
@@ -214,29 +234,22 @@ void RSITimer::timeout() {
     RSIGlobals::instance()->stats()->setStat(CURRENT_IDLE_TIME, idleSeconds);
     if (idleSeconds == 0) {
         RSIGlobals::instance()->stats()->increaseStat(ACTIVITY);
-        const double value =
-                100.0 - (( m_tinyBreakCounter->counterLeft() / (double)m_intervals[TINY_BREAK_INTERVAL]) * 100.0 );
-        emit updateIdleAvg(value);
     } else {
         RSIGlobals::instance()->stats()->setStat(MAX_IDLENESS, idleSeconds, true);
     }
 
-    int breakTime;
-    bool bigWasReset, tinyWasReset;
-    int inverseTick = (idleSeconds == 0) ? 1 : 0; // inverting as we account idle seconds here.
-
     switch (m_state) {
-        case Monitoring:
+        case TimerState::Monitoring: {
             // This is a weird thing to track as now when user was away, they will get back to zero counters,
             // not to an arbitrary time elapsed since last "idleness-skip-break".
-            bigWasReset = m_bigBreakCounter->isReset();
-            tinyWasReset = m_tinyBreakCounter->isReset();
+            bool bigWasReset = m_bigBreakCounter->isReset();
+            bool tinyWasReset = m_tinyBreakCounter->isReset();
 
-            breakTime = std::max(m_bigBreakCounter->tick(idleSeconds), m_tinyBreakCounter->tick(idleSeconds));
+            int breakTime = std::max(m_bigBreakCounter->tick(idleSeconds), m_tinyBreakCounter->tick(idleSeconds));
             if (breakTime > 0) {
                 suggestBreak(breakTime);
             } else {
-                // Not a time for break yet, but is one of the counters got reset, that means we were idle enough.
+                // Not a time for break yet, but if one of the counters got reset, that means we were idle enough to skip.
                 if (!bigWasReset && m_bigBreakCounter->isReset()) {
                     RSIGlobals::instance()->stats()->increaseStat(BIG_BREAKS);
                     RSIGlobals::instance()->stats()->increaseStat(IDLENESS_CAUSED_SKIP_BIG);
@@ -246,10 +259,14 @@ void RSITimer::timeout() {
                     RSIGlobals::instance()->stats()->increaseStat(IDLENESS_CAUSED_SKIP_TINY);
                 }
             }
+            const double value =
+                    100.0 - ((m_tinyBreakCounter->counterLeft() / (double) m_intervals[TINY_BREAK_INTERVAL]) * 100.0);
+            emit updateIdleAvg(value);
             break;
-        case Suggesting:
+        }
+        case TimerState::Suggesting: {
             // Using popupCounter to count down our patience here.
-            breakTime = m_popupCounter->tick(inverseTick);
+            int breakTime = m_popupCounter->tick(idleSeconds);
             if (breakTime > 0) {
                 // User kept working throw the suggestion timeout. Well, their loss.
                 emit relax(-1, false);
@@ -258,6 +275,7 @@ void RSITimer::timeout() {
                 break;
             }
 
+            int inverseTick = (idleSeconds == 0) ? 1 : 0; // inverting as we account idle seconds here.
             breakTime = m_pauseCounter->tick(inverseTick);
             if (breakTime > 0) {
                 // User has waited out the pause, back to monitoring.
@@ -267,16 +285,19 @@ void RSITimer::timeout() {
             emit relax(m_pauseCounter->counterLeft(), false);
             emit updateWidget(m_pauseCounter->counterLeft());
             break;
-        case Resting:
-            breakTime = m_pauseCounter->tick(inverseTick);
+        }
+        case TimerState::Resting: {
+            int inverseTick = (idleSeconds == 0) ? 1 : 0; // inverting as we account idle seconds here.
+            int breakTime = m_pauseCounter->tick(inverseTick);
             if (breakTime > 0) {
                 resetAfterBreak();
             } else {
                 emit updateWidget(m_pauseCounter->counterLeft());
             }
             break;
+        }
         default:
-            qDebug() << "Reached unexpected condition with state: " << m_state;
+            qDebug() << "Reached unexpected state";
     }
     defaultUpdateToolTip();
 }
@@ -284,26 +305,27 @@ void RSITimer::timeout() {
 void RSITimer::suggestBreak(const int breakTime)
 {
     if (m_bigBreakCounter->isReset()) {
+        qDebug() << "Big break triggered";
         RSIGlobals::instance()->stats()->increaseStat(BIG_BREAKS);
         RSIGlobals::instance()->stats()->setStat( LAST_BIG_BREAK, QVariant( QDateTime::currentDateTime() ) );
-    }
-    if (m_tinyBreakCounter->isReset()) {
+    } else {
+        qDebug() << "Tiny break triggered";
         RSIGlobals::instance()->stats()->increaseStat(TINY_BREAKS);
         RSIGlobals::instance()->stats()->setStat( LAST_TINY_BREAK, QVariant( QDateTime::currentDateTime() ) );
     }
 
-    // I have to say I hate this but let's keep the functionality as is for now.
     bool nextOneIsBig = m_bigBreakCounter->counterLeft() <= m_tinyBreakCounter->getDelayTicks();
     if (!m_usePopup) {
         doBreakNow(breakTime, nextOneIsBig);
         return;
     }
 
-    m_state = Suggesting;
+    m_state = TimerState::Suggesting;
     stopPauseCounters();
 
-    // INT_MAX so our UI suggestion counter is never reset.
-    m_popupCounter = new RSITimerCounter(m_intervals[PATIENCE_INTERVAL], breakTime, 1);
+    // When pause is longer than patience, we need to reset patience timer so that we don't flip to break now in
+    // mid-pause. Patience / 2 is a good alternative to it by extending patience if user was idle long enough.
+    m_popupCounter = new RSITimerCounter(m_intervals[PATIENCE_INTERVAL], breakTime, m_intervals[PATIENCE_INTERVAL] / 2);
     // Threshold of one means the timer is reset on every non-zero tick.
     m_pauseCounter = new RSITimerCounter(breakTime, breakTime, 1);
 
@@ -331,5 +353,5 @@ void RSITimer::createTimers() {
             m_intervals[BIG_BREAK_INTERVAL], m_intervals[BIG_BREAK_DURATION], bigThreshold);
     m_tinyBreakCounter = new RSITimerCounter(
             m_intervals[TINY_BREAK_INTERVAL], m_intervals[TINY_BREAK_DURATION], tinyThreshold);
-    m_pauseCounter = nullptr;
+//            30, 60, 180);
 }

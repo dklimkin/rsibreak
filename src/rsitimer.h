@@ -22,11 +22,11 @@
 #ifndef RSITimer_H
 #define RSITimer_H
 
-#include <QDateTime>
 #include <QThread>
 
 #include "rsiglobals.h"
 #include "rsitimercounter.h"
+#include "rsiidletime.h"
 
 /**
  * @class RSITimer
@@ -37,6 +37,7 @@
 class RSITimer : public QThread
 {
     Q_OBJECT
+    friend class RSITimerTest;
 
 public:
     /**
@@ -49,7 +50,7 @@ public:
     ~RSITimer();
 
     // Check whether the timer is suspended.
-    bool isSuspended() const { return m_state == Suspended; }
+    bool isSuspended() const { return m_state == TimerState::Suspended; }
 
     int tinyLeft() { return m_tinyBreakCounter->counterLeft(); };
 
@@ -163,11 +164,13 @@ signals:
     void bigBreakSkipped();
 
 private:
+    RSIIdleTime* m_idleTimeInstance;
+
     bool m_usePopup;
     bool m_useIdleTimers;
     QVector<int> m_intervals;
 
-    enum TimerState {
+    enum class TimerState {
         Suspended = 0,      // user has suspended either via dbus or tray.
         Monitoring,         // normal cycle, waiting for break to trigger.
         Suggesting,         // politely suggest to take a break with some patience.
@@ -186,10 +189,10 @@ private:
     void createTimers();
     void stopPauseCounters();
 
-    /** This function is called when a break has passed. */
+    // This function is called when a break has passed.
     void resetAfterBreak();
 
-    /** Start this thread */
+    // Start this thread.
     void run();
 
     /**
@@ -198,6 +201,9 @@ private:
       @param nextBreakIsBig Whether the next break will be big.
     */
     void doBreakNow(const int breakTime, const bool nextBreakIsBig);
+
+    // Constructor for tests.
+    RSITimer( RSIIdleTime* _idleTime, const QVector<int> _intervals, const bool _usePopup, const bool _useIdleTimers );
 };
 
 #endif
