@@ -19,7 +19,8 @@
 
 #include <QtTest/QtTest>
 
-class RSITimerCounterTest: public QObject {
+class RSITimerCounterTest: public QObject
+{
 private:
     Q_OBJECT
 

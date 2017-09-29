@@ -19,25 +19,28 @@
 
 #include <KIdleTime/KIdleTime>
 
-class RSIIdleTime {
+class RSIIdleTime
+{
 public:
     virtual ~RSIIdleTime() = 0;
     virtual int getIdleTime() const = 0;
 };
 
-class RSIIdleTimeImpl : public RSIIdleTime {
+class RSIIdleTimeImpl : public RSIIdleTime
+{
 public:
     virtual ~RSIIdleTimeImpl() = default;
     virtual int getIdleTime() const;
 };
 
-class RSIIdleTimeFake : public RSIIdleTime {
+class RSIIdleTimeFake : public RSIIdleTime
+{
 private:
     int m_idleTime = 0;
 public:
     virtual ~RSIIdleTimeFake() = default;
     virtual int getIdleTime() const;
-    void setIdleTime(const int _idleTime);
+    void setIdleTime( const int _idleTime );
 };
 
 #endif //RSIBREAK_RSIIDLETIME_H

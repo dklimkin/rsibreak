@@ -19,17 +19,18 @@
 #include "rsitimercounter.h"
 
 
-int RSITimerCounter::tick(const int idleTime) {
+int RSITimerCounter::tick( const int idleTime )
+{
     m_counter++;
 
     // Not idle for too long, time for a break.
-    if (m_counter >= m_delayTicks) {
+    if ( m_counter >= m_delayTicks ) {
         reset();
         return m_breakLength;
     }
 
     // Idle for enough to consider the break has happened.
-    if (idleTime >= m_resetThreshold) {
+    if ( idleTime >= m_resetThreshold ) {
         reset();
         return 0;
     }
@@ -38,22 +39,27 @@ int RSITimerCounter::tick(const int idleTime) {
     return 0;
 }
 
-bool RSITimerCounter::isReset() {
+bool RSITimerCounter::isReset()
+{
     return m_counter == 0;
 }
 
-void RSITimerCounter::reset() {
+void RSITimerCounter::reset()
+{
     m_counter = 0;
 }
 
-void RSITimerCounter::postpone(int ticks) {
-    m_counter = std::max(0, m_delayTicks - ticks);
+void RSITimerCounter::postpone( int ticks )
+{
+    m_counter = std::max( 0, m_delayTicks - ticks );
 }
 
-int RSITimerCounter::counterLeft() const {
+int RSITimerCounter::counterLeft() const
+{
     return m_delayTicks - m_counter;
 }
 
-int RSITimerCounter::getDelayTicks() const {
+int RSITimerCounter::getDelayTicks() const
+{
     return m_delayTicks;
 }

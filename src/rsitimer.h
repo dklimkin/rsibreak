@@ -46,7 +46,7 @@ public:
      * @param parent Parent Widget
      * @param name Name
      */
-    explicit RSITimer(QObject *parent = 0);
+    explicit RSITimer( QObject *parent = 0 );
 
     // Check whether the timer is suspended.
     bool isSuspended() const { return m_state == TimerState::Suspended; }
@@ -59,7 +59,7 @@ public slots:
     /**
       Reads the configuration and restarts the timer with slotRestart.
     */
-    void updateConfig(bool doRestart = false);
+    void updateConfig( bool doRestart = false );
 
     /**
       Stops the timer activity. This does not imply resetting counters.
@@ -88,14 +88,14 @@ public slots:
       just passed.
     */
     void skipBreak();
-   
+
     /**
       When the user presses the postpone break button during a break,
-      this function will be called. It will postpone the break  for the 
+      this function will be called. It will postpone the break for the
       configured amount of seconds.
     */
     void postponeBreak();
-    
+
     /**
       Queries X how many seconds the user has been idle. A value of 0
       means there was activity during the last second.
@@ -121,7 +121,7 @@ signals:
       @param bigLeft If <=0 a big break is active, else it defines how
       much time is left until the next big break.
     */
-    void updateToolTip(const int tinyLeft, const int bigLeft);
+    void updateToolTip( const int tinyLeft, const int bigLeft );
 
     /**
       Update the time shown on the fullscreen widget.
@@ -181,8 +181,8 @@ private:
     std::unique_ptr<RSITimerCounter> m_pauseCounter;
     std::unique_ptr<RSITimerCounter> m_popupCounter;
 
-    void hibernationDetector(const int totalIdle);
-    void suggestBreak(const int time);
+    void hibernationDetector( const int totalIdle );
+    void suggestBreak( const int time );
     void defaultUpdateToolTip();
     void createTimers();
 
@@ -197,7 +197,7 @@ private:
       @param breakTime The amount of seconds to break.
       @param nextBreakIsBig Whether the next break will be big.
     */
-    void doBreakNow(const int breakTime, const bool nextBreakIsBig);
+    void doBreakNow( const int breakTime, const bool nextBreakIsBig );
 
     // Constructor for tests. Ownership is taken over for _idleTime.
     RSITimer( RSIIdleTime* _idleTime, const QVector<int> _intervals, const bool _usePopup, const bool _useIdleTimers );

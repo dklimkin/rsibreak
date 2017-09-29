@@ -19,7 +19,8 @@
 
 #include <QtTest/QtTest>
 
-class RSITimerTest: public QObject {
+class RSITimerTest: public QObject
+{
     Q_OBJECT
     QVector<int> m_intervals;
 
