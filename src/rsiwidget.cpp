@@ -112,7 +112,7 @@ void RSIObject::maximize()
 void RSIObject::slotLock()
 {
     m_effect->deactivate();
-    m_timer->slotRestart();
+    m_timer->slotLock();
 
     QDBusInterface lock( "org.freedesktop.ScreenSaver", "/ScreenSaver",
                          "org.freedesktop.ScreenSaver" );

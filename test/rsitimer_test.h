@@ -31,6 +31,9 @@ private slots:
     void triggerComplexTinyBreak();
     void testSuspended();
     void triggerSimpleBigBreak();
+    void postponeBreak();
+    void screenLock();
+    void skipBreak();
 };
 
 #endif //RSIBREAK_RSITIMER_TEST_H

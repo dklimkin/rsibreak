@@ -17,7 +17,6 @@
 #ifndef RSIBREAK_RSITIMERCOUNTER_H
 #define RSIBREAK_RSITIMERCOUNTER_H
 
-#include <QDebug>
 
 class RSITimerCounter {
 
@@ -33,9 +32,9 @@ public:
             : m_delayTicks(delay)
             , m_breakLength(breakLength)
             , m_resetThreshold(resetThreshold)
-            , m_counter(0) { qDebug() << "Constructed."; }
+            , m_counter(0) { }
 
-    ~RSITimerCounter() { qDebug() << "Destructed."; }
+    ~RSITimerCounter() { }
 
     // Counts `elapsed` ticks.
     // @param idleTime time idle for this tick.

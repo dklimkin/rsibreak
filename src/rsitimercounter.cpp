@@ -47,7 +47,7 @@ void RSITimerCounter::reset() {
 }
 
 void RSITimerCounter::postpone(int ticks) {
-    m_counter = std::max(0, m_counter - ticks);
+    m_counter = std::max(0, m_delayTicks - ticks);
 }
 
 int RSITimerCounter::counterLeft() const {

@@ -23,6 +23,7 @@
 #define RSITimer_H
 
 #include <QThread>
+#include <memory>
 
 #include "rsiglobals.h"
 #include "rsitimercounter.h"
@@ -46,8 +47,6 @@ public:
      * @param name Name
      */
     explicit RSITimer(QObject *parent = 0);
-
-    ~RSITimer();
 
     // Check whether the timer is suspended.
     bool isSuspended() const { return m_state == TimerState::Suspended; }
@@ -79,9 +78,9 @@ public slots:
     void slotStart();
 
     /**
-      Reset the timer. This implies resetting the counters for a tiny and big breaks.
+      Called when user locks the screen for pause. Resets current timers if currently suggesting.
     */
-    void slotRestart();
+    void slotLock();
 
     /**
       When the user presses the Skip button during a break,
@@ -164,7 +163,7 @@ signals:
     void bigBreakSkipped();
 
 private:
-    RSIIdleTime* m_idleTimeInstance;
+    std::unique_ptr<RSIIdleTime> m_idleTimeInstance;
 
     bool m_usePopup;
     bool m_useIdleTimers;
@@ -177,17 +176,15 @@ private:
         Resting             // suggestion ignored, waiting out the break.
     } m_state;
 
-    RSITimerCounter *m_bigBreakCounter;
-    RSITimerCounter *m_tinyBreakCounter;
-    RSITimerCounter *m_pauseCounter;
-    RSITimerCounter *m_popupCounter;
+    std::unique_ptr<RSITimerCounter> m_bigBreakCounter;
+    std::unique_ptr<RSITimerCounter> m_tinyBreakCounter;
+    std::unique_ptr<RSITimerCounter> m_pauseCounter;
+    std::unique_ptr<RSITimerCounter> m_popupCounter;
 
     void hibernationDetector(const int totalIdle);
     void suggestBreak(const int time);
     void defaultUpdateToolTip();
-
     void createTimers();
-    void stopPauseCounters();
 
     // This function is called when a break has passed.
     void resetAfterBreak();
@@ -202,7 +199,7 @@ private:
     */
     void doBreakNow(const int breakTime, const bool nextBreakIsBig);
 
-    // Constructor for tests.
+    // Constructor for tests. Ownership is taken over for _idleTime.
     RSITimer( RSIIdleTime* _idleTime, const QVector<int> _intervals, const bool _usePopup, const bool _useIdleTimers );
 };
 
